@@ -1,5 +1,5 @@
 # analyse de données avec R
-analyse de données avec R
+Ici vous trouvez mes mes TPs et mes corrections d'analyse de données avec R
 
 basic R
 
