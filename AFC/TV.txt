@@ -1,0 +1,8 @@
+	Moins15	15-24	25-39	40-60	Plus60
+TV	322	114	72	135	130
+Theatre	1	17	85	92	14
+Cinema	90	220	192	87	7
+Lecture	23	38	57	73	80
+Restaurant	7	53	158	49	13
+Night-Club	0	87	109	21	0
+Concert	27	153	130	47	1

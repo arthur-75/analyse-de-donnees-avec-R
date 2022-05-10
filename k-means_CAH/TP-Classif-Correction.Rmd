@@ -1,0 +1,243 @@
+---
+title: 'TP Classification non supervisée - Correction'
+author: Analyse des données
+date: Master ISEFAR - M1
+output: 
+  pdf_document: 
+    number_sections: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r,warning=FALSE}
+rm(list=ls())
+library("tidyverse") #pour avoir de 'beaux' graphiques
+library("FactoMineR") #pour effectuer l'ACP
+library("factoextra") #pour extraire et visualiser les résultats issus de FactoMineR
+library(corrplot)
+```
+
+# Criminalités aux USA
+## Données
+```{r}
+data(USArrests)
+```
+
+
+## Normalisation des données et calcul des distances entre individus avec la distance euclidienne
+```{r}
+USArrests.cr <-  USArrests %>% scale(.,scale=TRUE, center=TRUE)
+USArrests.dist <- USArrests.cr %>% dist(., method = "euclidean")
+```
+
+## CAH
+```{r, out.width = "70%",fig.align='center'}
+# Lien simple
+USArrests.single<-USArrests.dist %>% hclust(., method = "single")
+fviz_dend(USArrests.single, cex = 0.5)
+# Lien complet
+USArrests.average<-USArrests.dist %>% hclust(., method = "average")
+fviz_dend(USArrests.average, cex = 0.5)
+# distance de ward
+USArrests.ward<-USArrests.dist^2 %>% hclust(., method = "ward.D")
+fviz_dend(USArrests.ward, cex = 0.5)
+
+# Courbe de l'augmentation de l'inertie intra-groupe en fonction du nombre d'itérations
+plot(USArrests.ward$height,type="s",xlab="nb itérations",ylab="heigth")
+```
+
+On choisit 4 groupes 
+```{r, out.width = "70%",fig.align='center'}
+fviz_dend(USArrests.ward, 
+          k=4,
+          cex = 0.8, 
+          palette="jco",
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",
+          labels_track_height = 70
+          ) 
+```
+
+
+## Représentation des groupes sur le plan principal de l'ACP 
+
+```{r, out.width = "70%",fig.align='center'}
+# On récupère les k groupes
+cluster.CAH <- USArrests.ward %>%  cutree(., k =4)
+# ACP 
+res.pca=PCA(USArrests,scale.unit = TRUE,ncp = 4,graph=FALSE)
+# visualiser les classes sur le premier plan factoriel de l'ACP
+fviz_pca_ind(res.pca,axes=c(1,2),habillage=as.factor(cluster.CAH))
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster.CAH))
+# moyennes des variables par groupe
+knitr::kable(aggregate(USArrests, by=list(as.factor(cluster.CAH)),mean),digits=1)
+```
+
+## K-means
+```{r, out.width = "70%",fig.align='center'}
+# 1 fois
+res.kmeans <- USArrests %>% kmeans(.,centers =4,nstart = 1)
+cluster.kmeans <- res.kmeans$cluster
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster.kmeans))
+
+# 1 fois
+res.kmeans <- USArrests %>% kmeans(.,centers =4,nstart = 1)
+cluster.kmeans <- res.kmeans$cluster
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster.kmeans))
+
+# 10 fois
+res.kmeans <- USArrests %>% kmeans(.,centers =4,nstart = 10)
+cluster.kmeans <- res.kmeans$cluster
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster.kmeans))
+```
+
+## Comparaisons CAH et k-means
+```{r}
+knitr::kable(cbind(cluster.kmeans,cluster.CAH))
+```
+
+
+# Fertilité et indicateurs socio-économiques en Suisse
+
+## Données
+```{r}
+data(swiss)
+```
+
+
+## CAH avec la distance de Ward
+```{r, out.width = "70%",fig.align='center'}
+# CAH
+swiss.var <- swiss %>% dplyr::select(-Fertility)
+
+swiss.cr <- swiss.var %>% scale(.,scale=TRUE, center=TRUE)
+swiss.dist <- swiss.cr %>% dist(., method = "euclidean")
+swiss.ward<- swiss.dist^2 %>%hclust(., method = "ward.D")
+
+# Nombre de groupes?
+fviz_dend(swiss.ward, cex = 0.5)
+fviz_dend(swiss.ward, 
+          k=3,
+          cex = 0.8, 
+          palette="jco",
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",
+          labels_track_height = 40
+          ) 
+```
+
+
+
+## Représentation des groupes à l'aide de l'ACP
+```{r, out.width = "70%",fig.align='center'}
+cluster <- swiss.ward %>% cutree(., k =3)
+# ACP 
+res.pca=PCA(swiss,scale.unit = TRUE,ncp = 5,graph=FALSE,quanti.sup = 1)
+# visualiser les classes sur le premier plan factoriel de l'ACP
+fviz_pca_ind(res.pca,axes=c(1,2),habillage=as.factor(cluster))
+fviz_pca_var(res.pca,axes=c(1,2),col.var="cos2")
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster))
+# moyennes des variables par groupe
+knitr::kable(aggregate(swiss[,-1], by=list(as.factor(cluster)),mean),digits=1) 
+```
+
+# Décathlon
+
+## Données et statistiques simples
+```{r, out.width = "70%",fig.align='center'}
+# Données
+data(decathlon)
+decathlon <- decathlon %>% filter(Competition=="OlympicG") %>% dplyr::select(-Competition)
+knitr::kable(head(decathlon))
+dim(decathlon)
+
+#Statistiques simples
+summary(decathlon)
+decathlon.active <- decathlon %>% dplyr::select(-Rank,-Points)
+decathlon.active %>% summarise_all(mean)
+decathlon.active %>% summarise_all(var)
+
+#Corrélation
+correlation <- decathlon.active %>% cor(.)
+print(correlation,digits=3)
+correlation %>% corrplot
+```
+
+## ACP
+```{r}
+res.pca=PCA(decathlon,scale.unit = TRUE,ncp = 10,quanti.sup = 11:12,graph=FALSE)
+# les variables supplémentaires sont intégrées au graphe mais ne sont pas 
+# prises en compte pour l'ACP
+```
+
+### Valeurs propres
+```{r, out.width = "70%",fig.align='center'}
+res.pca$eig
+fviz_eig(res.pca, addlabels = TRUE)
+```
+
+### Variables
+```{r, out.width = "70%",fig.align='center'}
+fviz_pca_var(res.pca, geom = c("text", "arrow"), col.var = "cos2",axes=1:2) + theme_classic()
+fviz_pca_var(res.pca, geom = c("text", "arrow"), col.var = "cos2",axes=3:4) + theme_classic()
+```
+
+### Individus
+```{r, out.width = "70%",fig.align='center'}
+fviz_pca_ind (res.pca, col.ind = "cos2",axes=1:2,
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Évite le chevauchement de texte
+             )
+fviz_pca_ind (res.pca, col.ind = "cos2",axes=3:4,
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Évite le chevauchement de texte
+             )
+```
+
+### Biplot
+```{r, out.width = "70%",fig.align='center'}
+fviz_pca_biplot(res.pca, repel = TRUE,
+                col.var = "#2E9FDF", # Couleur des variables
+                col.ind = "#696969"  # Couleur des individus
+                )
+```
+
+## Classification par CAH
+```{r}
+decathlon.cr <-  decathlon.active %>% scale(., scale=T, center=T) 
+decathlon.dist <- decathlon.cr %>% dist(., method = "euclidean")
+decathlon.ward<-decathlon.dist^2 %>% hclust(., method = "ward.D")
+```
+
+
+### Représentation graphique et choix du nombre de groupes 
+```{r, out.width = "70%",fig.align='center'}
+# Dendrogramme et choix du nombre de groupes
+fviz_dend(decathlon.ward, cex = 0.5)
+fviz_dend(decathlon.ward, 
+          k=5,
+          cex = 0.8, 
+          palette="jco",
+          rect = TRUE, rect_fill = TRUE, # Rectangle autour des groupes
+          rect_border = "jco",
+          labels_track_height = 40
+          ) 
+cluster <- cutree(decathlon.ward, k =5)
+
+```
+
+### Interprétation des groupes
+
+
+```{r, out.width = "70%",fig.align='center'}
+# visualiser les classes sur le premier plan factoriel de l'ACP
+fviz_pca_biplot(res.pca,axes=c(1,2),habillage=as.factor(cluster))
+fviz_pca_biplot(res.pca,axes=c(3,4),habillage=as.factor(cluster))
+# moyennes des variables par groupe
+knitr::kable(aggregate(decathlon.active, by=list(as.factor(cluster)),mean),digits=1) 
+```
